@@ -15,6 +15,7 @@ Author:     JHW
 
 #include <ESP8266WiFi.h>
 #include <EEPROM.h>
+#include <SoftwareSerial/SoftwareSerial.h>
 #define NULL 0
 
 typedef struct flag_variable {
@@ -48,13 +49,64 @@ boolean eeprom_write_bytes(int startAddr, const byte* array, int numBytes);
 boolean eeprom_write_string(int addr, const char* string);
 boolean eeprom_read_string(int addr, char* buffer, int bufSize);
 
+const char* wifiSSID = "KT_GiGA_2G_C62E";
+const char* wifiPassword = "fzfd8ed535";
+
+//const char* ssid = "TP-LINK_E59A";
+//const char* password = "23498129";
+
+
+const int httpPort = 80;
+
+//동백동 기상청RSS 주소
+//http://www.kma.go.kr/wid/queryDFSRSS.jsp?zone=4146358500
+
+//상윤원룸 죽전1동
+//http://www.kma.go.kr/wid/queryDFSRSS.jsp?zone=4146554000
+
+const String KMA_url = "/wid/queryDFSRSS.jsp?zone=4146358500";
+const char* SERVER = "www.kma.go.kr";
+
+
+//하드웨어 변수 초기화
+SoftwareSerial BlueToothSerial(D7, D8);
+
+
 void parsing_data(char str[], char ssid[], char pwd[]) ; // 와이파이 정보 파싱용
-void wifi_scan();	// wifi 스캐닝
+void wifi_scan();	// 주변 wifi 스캐닝
+void WiFiSetUp();	// wifi 연결을 위한 초기화
+
+void WiFiSetUp() {
+	// Connect to WiFi network
+	Serial.println();
+	Serial.print("Connecting to ");
+	Serial.println(ssid);
+
+	WiFi.mode(WIFI_STA);  //esp12를 AP에 연결하고 외부 네트워크와 통신하므로 스테이션모드
+
+	WiFi.begin(wifiSSID, wifiPassword);
+
+	while (WiFi.status() != WL_CONNECTED)
+	{
+		delay(500);
+		Serial.print(".");
+	}
+
+	Serial.println("");
+	Serial.println("WiFi connected");
+}
 
 void setup() {
 
 	EEPROM.begin(512);
+
 	Serial.begin(9600);
+	BlueToothSerial.begin(9600);
+	
+	delay(1000);
+	Serial.println("Serial SetUp begin");
+
+	WiFiSetUp();
 
 	flag.Serial = 0 ;
 	flag.menu = 0 ;	// 기본모드
