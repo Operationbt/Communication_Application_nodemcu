@@ -14,7 +14,7 @@ Author:     JHW
 //*******************************************
 // Weather Reminder 상태
 // 1. SETUP 상태. 블루투스를 사용하는 상태. 즉 어플로 부터 와이파이 정보를 받기 위한 상태
-//  (1) 블루투스 모듈이 켜져있는지 GPIO로 확인
+//  (1) 블루투스 모듈이 켜져있는지 AT명령어로 확인
 //	(2) 어플에서 블루투스 연결이 되고 블루투스 응답을 요청하면 응답
 //  (3) 어플쪽에게 주변 와이파이 스캔 목록을 전송
 //  (4) 어플에서 선택된 와이파이의 SSID와 비밀번호 정보를 받음
@@ -28,6 +28,12 @@ Author:     JHW
 
 //분리할수 있는 기능들은 가능한 다른 소스파일로 만들자
 
+
+
+// WeatherReminder GPIO핀 정의
+// D7 : 소프트웨어 시리얼 RX
+// D8 : 소프트웨어 시리얼 TX
+// D5 : 디버깅용 LED 
 
 #include <ESP8266WiFi.h>
 #include <EEPROM.h>
@@ -65,6 +71,8 @@ boolean eeprom_write_bytes(int startAddr, const byte* array, int numBytes);
 boolean eeprom_write_string(int addr, const char* string);
 boolean eeprom_read_string(int addr, char* buffer, int bufSize);
 
+
+//테스트용 변수임...
 const char* wifiSSID = "KT_GiGA_2G_C62E";
 const char* wifiPassword = "fzfd8ed535";
 
@@ -86,6 +94,13 @@ const char* SERVER = "www.kma.go.kr";
 
 //하드웨어 변수 초기화
 SoftwareSerial BlueToothSerial(D7, D8);
+
+// WeatherReminder 블루투스 켜져있으면 SETUP, 꺼져있으면 RUN
+const int SETUP = 1;
+const int RUN = 0;
+int state_WeatherReminder;
+void SetupWeatherReminder();
+void RunWeatherReminder();
 
 
 void parsing_data(char str[], char ssid[], char pwd[]) ; // 와이파이 정보 파싱용
@@ -115,7 +130,7 @@ void WiFiSetUp() {
 void setup() {
 
 
-	EEPROM.begin(512);
+	//EEPROM.begin(512);
 
 	Serial.begin(9600);
 	BlueToothSerial.begin(9600);
@@ -123,21 +138,44 @@ void setup() {
 	delay(1000);
 	Serial.println("Serial SetUp begin");
 
-	/*
-	if (와이파이 정보가 있을 때)
-	{
-		WiFiSetUp();
-	}
-	*/
-
+	state_WeatherReminder = 0;
 	flag.Serial = 0 ;
 	flag.menu = 0 ;	// 기본모드
 	flag.read = 0 ;
 
+	pinMode(D5, OUTPUT);
+	digitalWrite(D5, LOW);
 }
 
-void loop() {
+void loop()
+{
+	BlueToothSerial.write("AT");  //시리얼 모니터 내용을 블루추스 측에 WRITE
+	delay(3000);
+	if (BlueToothSerial.available())
+	{
+		String str = BlueToothSerial.readString();
+		// 블루투스 모듈이 OK 응답하면 SETUP 상태로 설정한다
+		if (str == "OK")
+			state_WeatherReminder = SETUP;
+		
+	}
+	Serial.printf("[1] : %d\n", state_WeatherReminder);
+	// state_WeatherReminder에 따라 진입할 기능이 나뉜다
+	switch (state_WeatherReminder)
+	{
+	case SETUP :
+		SetupWeatherReminder();
+		
+		state_WeatherReminder = 0;
+		break;
+	case RUN :
+		RunWeatherReminder();
+		break;
+	default :
+		break;	
+	}
 
+#if 0
 	if (Serial.available() > 0) {
 
 		temp_str = Serial.readStringUntil('\n');		// read 한 문자열 
@@ -223,9 +261,7 @@ void loop() {
 	Serial.print("flag.menu : ");
 	Serial.println(flag.menu);
 
-
-
-	delay(1000);
+#endif
 
 }
 
@@ -316,6 +352,37 @@ boolean eeprom_read_string(int addr, char* buffer, int bufSize) {
 }
 
 /* eeprom 끝 */
+
+void SetupWeatherReminder()
+{
+	digitalWrite(D5, HIGH);
+	
+	while (1)
+	{
+		Serial.println("SetupWeatherReminder");
+		delay(1000);
+	}
+}
+
+void RunWeatherReminder()
+{
+	digitalWrite(D5, LOW);
+	
+	//RUN으로 진입하면 가장 첫번째로 eeprom에 와이파이 정보가 저장되어있는지 체크한다. 없으면 기능 작동 못하니깐 빠져나온다
+	//if (와이파이 정보 있으면)
+	//{
+		//Serial.println("RunWeatherReminder");
+		//RUN 상태일때 와이파이, 도트매트릭스, 센서 등등 사용하니깐 그런거 셋업하는거 추가
+		WiFiSetUp();
+		//ex) DotMatrixSetUp();
+		while (1)
+		{
+			Serial.println("RunWeatherReminder");
+			delay(1000);
+		}
+	//}
+
+}
 
 /* 파싱 */
 void parsing_data(char str[], char ssid[], char pwd[]) {
