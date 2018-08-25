@@ -47,8 +47,17 @@ typedef struct flag_variable {
 	int read;
 
 }flag_var;
-
 flag_var flag;
+
+typedef struct
+{
+	String temp;  //온도
+	String wfEn;  //구름
+	String reh;   //습도
+} INFO_WEATHER;
+
+
+
 
 const int EEPROM_MIN_ADDR = 0;
 const int EEPROM_MAX_ADDR = 511;
@@ -72,12 +81,7 @@ boolean eeprom_write_string(int addr, const char* string);
 boolean eeprom_read_string(int addr, char* buffer, int bufSize);
 
 
-//테스트용 변수임...
-const char* wifiSSID = "KT_GiGA_2G_C62E";
-const char* wifiPassword = "fzfd8ed535";
 
-//const char* ssid = "TP-LINK_E59A";
-//const char* password = "23498129";
 
 
 const int httpPort = 80;
@@ -114,7 +118,12 @@ void WiFiSetUp() {
 	Serial.println(ssid);
 
 	WiFi.mode(WIFI_STA);  //esp12를 AP에 연결하고 외부 네트워크와 통신하므로 스테이션모드
-
+	
+	//테스트용 변수임...
+	const char* wifiSSID = "KT_GiGA_2G_C62E";
+	const char* wifiPassword = "fzfd8ed535";
+	//const char* ssid = "TP-LINK_E59A";
+	//const char* password = "23498129";
 	WiFi.begin(wifiSSID, wifiPassword);
 
 	while (WiFi.status() != WL_CONNECTED)
@@ -129,8 +138,7 @@ void WiFiSetUp() {
 
 void setup() {
 
-
-	//EEPROM.begin(512);
+	EEPROM.begin(512);
 
 	Serial.begin(9600);
 	BlueToothSerial.begin(9600);
@@ -159,7 +167,6 @@ void loop()
 			state_WeatherReminder = SETUP;
 		
 	}
-	Serial.printf("[1] : %d\n", state_WeatherReminder);
 	// state_WeatherReminder에 따라 진입할 기능이 나뉜다
 	switch (state_WeatherReminder)
 	{
@@ -356,10 +363,10 @@ boolean eeprom_read_string(int addr, char* buffer, int bufSize) {
 void SetupWeatherReminder()
 {
 	digitalWrite(D5, HIGH);
-	
+	Serial.println("SetupWeatherReminder");
 	while (1)
 	{
-		Serial.println("SetupWeatherReminder");
+		
 		delay(1000);
 	}
 }
@@ -367,7 +374,7 @@ void SetupWeatherReminder()
 void RunWeatherReminder()
 {
 	digitalWrite(D5, LOW);
-	
+	Serial.println("RunWeatherReminder");
 	//RUN으로 진입하면 가장 첫번째로 eeprom에 와이파이 정보가 저장되어있는지 체크한다. 없으면 기능 작동 못하니깐 빠져나온다
 	//if (와이파이 정보 있으면)
 	//{
@@ -375,10 +382,60 @@ void RunWeatherReminder()
 		//RUN 상태일때 와이파이, 도트매트릭스, 센서 등등 사용하니깐 그런거 셋업하는거 추가
 		WiFiSetUp();
 		//ex) DotMatrixSetUp();
+		INFO_WEATHER infoWeather;
+
+		WiFiClient client;
+		int i;
+		String tmp_str;
 		while (1)
 		{
-			Serial.println("RunWeatherReminder");
-			delay(1000);
+	
+			if (client.connect(SERVER, httpPort))
+			{
+
+				client.print(String("GET ") + KMA_url + " HTTP/1.1\r\n" +
+					"Host: " + SERVER + "\r\n" +
+					"Connection: close\r\n\r\n");
+
+				delay(1000);
+
+
+				while (client.available())
+				{
+					String line = client.readStringUntil('\n');
+
+					i = line.indexOf("</temp>"); //온도
+
+					if (i > 0)
+					{
+						tmp_str = "<temp>";
+						infoWeather.temp = line.substring(line.indexOf(tmp_str) + tmp_str.length(), i);
+						Serial.print("온도 : ");
+						Serial.println(infoWeather.temp);
+					}
+
+					i = line.indexOf("</wfEn>"); //구름정보(영문)
+
+					if (i>0)
+					{
+						tmp_str = "<wfEn>";
+						infoWeather.wfEn = line.substring(line.indexOf(tmp_str) + tmp_str.length(), i);
+						Serial.print("구름 : ");
+						Serial.println(infoWeather.wfEn);
+					}
+
+					i = line.indexOf("</reh>"); //습도
+
+					if (i>0)
+					{
+						tmp_str = "<reh>";
+						infoWeather.reh = line.substring(line.indexOf(tmp_str) + tmp_str.length(), i);
+						Serial.print("습도 : ");
+						Serial.println(infoWeather.reh);
+						break;
+					}
+				}
+			}
 		}
 	//}
 
