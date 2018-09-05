@@ -365,9 +365,14 @@ void SetupWeatherReminder()
 	digitalWrite(D5, HIGH);
 	Serial.println("SetupWeatherReminder");
 	while (1)
-	{
+	{	
 		
-		delay(1000);
+		if (BlueToothSerial.available())
+		{
+			
+			Serial.println(BlueToothSerial.readString());
+		}
+		delay(2000);
 	}
 }
 
@@ -381,6 +386,7 @@ void RunWeatherReminder()
 		//Serial.println("RunWeatherReminder");
 		//RUN 상태일때 와이파이, 도트매트릭스, 센서 등등 사용하니깐 그런거 셋업하는거 추가
 		WiFiSetUp();
+
 		//ex) DotMatrixSetUp();
 		INFO_WEATHER infoWeather;
 
@@ -389,21 +395,19 @@ void RunWeatherReminder()
 		String tmp_str;
 		while (1)
 		{
-	
 			if (client.connect(SERVER, httpPort))
 			{
-
 				client.print(String("GET ") + KMA_url + " HTTP/1.1\r\n" +
 					"Host: " + SERVER + "\r\n" +
 					"Connection: close\r\n\r\n");
-
-				delay(1000);
-
+				
+				delay(2000);
 
 				while (client.available())
 				{
+					
 					String line = client.readStringUntil('\n');
-
+					
 					i = line.indexOf("</temp>"); //온도
 
 					if (i > 0)
@@ -436,6 +440,8 @@ void RunWeatherReminder()
 					}
 				}
 			}
+
+			delay(2000);
 		}
 	//}
 
